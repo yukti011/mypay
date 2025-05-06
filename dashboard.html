@@ -1,0 +1,491 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - Fraud Detection System{% endblock %}
+
+{% block head %}
+<style>
+    .stat-card {
+        transition: transform 0.3s;
+    }
+    .stat-card:hover {
+        transform: translateY(-5px);
+    }
+    .fraud-score-badge {
+        font-size: 1rem;
+        padding: 0.5rem 0.75rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-6">
+        <h1 class="mb-3">UPI Fraud Detection Dashboard</h1>
+        <p class="lead text-muted">Real-time analytics and UPI payment fraud detection insights.</p>
+    </div>
+    <div class="col-md-6 text-md-end">
+        <a href="{{ url_for('main.upload_file') }}" class="btn btn-primary">
+        </a>
+    </div>
+</div>
+
+<!-- Stats Overview Cards -->
+<div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stat-card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-2">Transactions Analyzed</h6>
+                        <h2 class="mb-0">{{ stats.total_transactions }}</h2>
+                    </div>
+                    <div class="text-primary">
+                        <i class="fas fa-exchange-alt fa-2x"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <span class="badge bg-success">
+                        <i class="fas fa-arrow-up me-1"></i>{{ stats.transaction_change }}%
+                    </span>
+                    <small class="text-muted ms-2">vs. last period</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stat-card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-2">Fraud Detected</h6>
+                        <h2 class="mb-0">{{ stats.fraud_count }}</h2>
+                    </div>
+                    <div class="text-danger">
+                        <i class="fas fa-exclamation-triangle fa-2x"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <span class="badge bg-{{ 'danger' if stats.fraud_change > 0 else 'success' }}">
+                        <i class="fas fa-arrow-{{ 'up' if stats.fraud_change > 0 else 'down' }} me-1"></i>{{ stats.fraud_change|abs }}%
+                    </span>
+                    <small class="text-muted ms-2">vs. last period</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stat-card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-2">Average Risk Score</h6>
+                        <h2 class="mb-0">{{ stats.avg_risk_score }}</h2>
+                    </div>
+                    <div class="text-warning">
+                        <i class="fas fa-chart-line fa-2x"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <div class="progress" style="height: 6px;">
+                        <div class="progress-bar bg-{{ stats.risk_color }}" role="progressbar" 
+                            style="width: {{ stats.avg_risk_score_percent }}%" 
+                            aria-valuenow="{{ stats.avg_risk_score_percent }}" 
+                            aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stat-card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-2">Model Accuracy</h6>
+                        <h2 class="mb-0">{{ stats.model_accuracy }}%</h2>
+                    </div>
+                    <div class="text-info">
+                        <i class="fas fa-brain fa-2x"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <div class="progress" style="height: 6px;">
+                        <div class="progress-bar bg-info" role="progressbar" 
+                            style="width: {{ stats.model_accuracy }}%" 
+                            aria-valuenow="{{ stats.model_accuracy }}" 
+                            aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row mb-4">
+    <div class="col-lg-8 mb-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-transparent">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Fraud Detection Trends</h5>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button" class="btn btn-outline-secondary active" data-period="weekly">Weekly</button>
+                        <button type="button" class="btn btn-outline-secondary" data-period="monthly">Monthly</button>
+                        <button type="button" class="btn btn-outline-secondary" data-period="yearly">Yearly</button>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <canvas id="fraudTrendsChart" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4 mb-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-transparent">
+                <h5 class="mb-0">Fraud Distribution</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="fraudDistributionChart" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scatter Plot and Score Distribution -->
+<div class="row mb-4">
+    <div class="col-lg-8 mb-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-transparent">
+                <h5 class="mb-0">Transaction Clustering</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="scatterPlotChart" height="300"></canvas>
+            </div>
+            <div class="card-footer bg-transparent">
+                <small class="text-muted">
+                    <i class="fas fa-info-circle me-1"></i>
+                    This visualization groups transactions based on their features. Suspected fraudulent transactions are highlighted in red.
+                </small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4 mb-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-transparent">
+                <h5 class="mb-0">Risk Score Distribution</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="scoreDistributionChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Transactions Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-transparent">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Recent Transactions</h5>
+                    <a href="#" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-download me-1"></i>Export Data
+                    </a>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Transaction ID</th>
+                                <th>Date & Time</th>
+                                <th>Amount</th>
+                                <th>User</th>
+                                <th>Risk Score</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for transaction in recent_transactions %}
+                            <tr class="{{ 'table-danger' if transaction.is_fraud else '' }}">
+                                <td><code>{{ transaction.id }}</code></td>
+                                <td>{{ transaction.timestamp }}</td>
+                                <td>{{ transaction.amount|format_currency }}</td>
+                                <td>{{ transaction.user }}</td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="progress flex-grow-1 me-2" style="height: 6px;">
+                                            <div class="progress-bar bg-{{ transaction.risk_color }}" 
+                                                role="progressbar" 
+                                                style="width: {{ transaction.risk_score }}%"></div>
+                                        </div>
+                                        <span>{{ transaction.risk_score }}%</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-{{ 'danger' if transaction.is_fraud else 'success' }}">
+                                        {{ 'Fraudulent' if transaction.is_fraud else 'Legitimate' }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button type="button" class="btn btn-outline-secondary" 
+                                                data-bs-toggle="tooltip" 
+                                                title="View Details">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-outline-secondary" 
+                                                data-bs-toggle="tooltip" 
+                                                title="Generate Report">
+                                            <i class="fas fa-file-alt"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer bg-transparent">
+                <nav>
+                    <ul class="pagination pagination-sm justify-content-center mb-0">
+                        <li class="page-item disabled">
+                            <a class="page-link" href="#" tabindex="-1">Previous</a>
+                        </li>
+                        <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                        <li class="page-item"><a class="page-link" href="#">2</a></li>
+                        <li class="page-item"><a class="page-link" href="#">3</a></li>
+                        <li class="page-item">
+                            <a class="page-link" href="#">Next</a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Sample data for charts
+        const trendsData = {
+            labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5', 'Week 6'],
+            datasets: [
+                {
+                    label: 'Legitimate Transactions',
+                    data: [120, 145, 135, 170, 190, 210],
+                    backgroundColor: 'rgba(40, 167, 69, 0.2)',
+                    borderColor: 'rgba(40, 167, 69, 1)',
+                    borderWidth: 2,
+                    tension: 0.4
+                },
+                {
+                    label: 'Fraudulent Transactions',
+                    data: [8, 12, 5, 10, 4, 7],
+                    backgroundColor: 'rgba(220, 53, 69, 0.2)',
+                    borderColor: 'rgba(220, 53, 69, 1)',
+                    borderWidth: 2,
+                    tension: 0.4
+                }
+            ]
+        };
+        
+        const distributionData = {
+            labels: ['Card Present', 'Card Not Present', 'Mobile Payments', 'Wire Transfer', 'Other'],
+            datasets: [{
+                data: [15, 45, 20, 10, 10],
+                backgroundColor: [
+                    'rgba(32, 201, 151, 0.8)',
+                    'rgba(220, 53, 69, 0.8)',
+                    'rgba(255, 193, 7, 0.8)',
+                    'rgba(13, 110, 253, 0.8)',
+                    'rgba(108, 117, 125, 0.8)'
+                ],
+                borderColor: [
+                    'rgba(32, 201, 151, 1)',
+                    'rgba(220, 53, 69, 1)',
+                    'rgba(255, 193, 7, 1)',
+                    'rgba(13, 110, 253, 1)',
+                    'rgba(108, 117, 125, 1)'
+                ],
+                borderWidth: 1
+            }]
+        };
+        
+        const scatterData = {
+            datasets: [{
+                label: 'Legitimate Transactions',
+                data: {{ scatter_data.normal|safe if scatter_data else '[]' }},
+                backgroundColor: 'rgba(40, 167, 69, 0.7)',
+                pointRadius: 5,
+                pointHoverRadius: 8
+            }, {
+                label: 'Suspicious Transactions',
+                data: {{ scatter_data.fraud|safe if scatter_data else '[]' }},
+                backgroundColor: 'rgba(220, 53, 69, 0.7)',
+                pointRadius: 5,
+                pointHoverRadius: 8
+            }]
+        };
+        
+        const scoreDistData = {
+            labels: ['0-10', '11-20', '21-30', '31-40', '41-50', '51-60', '61-70', '71-80', '81-90', '91-100'],
+            datasets: [{
+                label: 'Number of Transactions',
+                data: {{ score_distribution|safe if score_distribution else '[25, 38, 42, 50, 45, 30, 25, 15, 10, 5]' }},
+                backgroundColor: function(context) {
+                    const index = context.dataIndex;
+                    const value = index / 9; // Normalize to 0-1
+                    return `rgba(${Math.floor(255 * value)}, ${Math.floor(255 * (1 - value))}, 0, 0.8)`;
+                },
+                borderColor: 'rgba(0, 0, 0, 0.1)',
+                borderWidth: 1
+            }]
+        };
+        
+        // Initialize Chart.js charts
+        const trendsChart = new Chart(
+            document.getElementById('fraudTrendsChart'),
+            {
+                type: 'line',
+                data: trendsData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Number of Transactions'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Time Period'
+                            }
+                        }
+                    }
+                }
+            }
+        );
+        
+        const distributionChart = new Chart(
+            document.getElementById('fraudDistributionChart'),
+            {
+                type: 'pie',
+                data: distributionData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            }
+        );
+        
+        const scatterChart = new Chart(
+            document.getElementById('scatterPlotChart'),
+            {
+                type: 'scatter',
+                data: scatterData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Feature 1 (PCA)'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Feature 2 (PCA)'
+                            }
+                        }
+                    }
+                }
+            }
+        );
+        
+        const scoreDistChart = new Chart(
+            document.getElementById('scoreDistributionChart'),
+            {
+                type: 'bar',
+                data: scoreDistData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Number of Transactions'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Risk Score Range'
+                            }
+                        }
+                    }
+                }
+            }
+        );
+        
+        // Add event listeners for time period selectors
+        document.querySelectorAll('[data-period]').forEach(button => {
+            button.addEventListener('click', function() {
+                // Remove active class from all buttons
+                document.querySelectorAll('[data-period]').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                
+                // Add active class to clicked button
+                this.classList.add('active');
+                
+                // Update chart data based on period (this would fetch new data in a real app)
+                const period = this.getAttribute('data-period');
+                console.log(`Changing to ${period} view`);
+                
+                // Simulate data update (in a real app, this would fetch from backend)
+                if (period === 'monthly') {
+                    trendsChart.data.labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+                    trendsChart.data.datasets[0].data = [520, 680, 590, 730, 820, 950];
+                    trendsChart.data.datasets[1].data = [45, 53, 35, 42, 25, 30];
+                } else if (period === 'yearly') {
+                    trendsChart.data.labels = ['2018', '2019', '2020', '2021', '2022', '2023'];
+                    trendsChart.data.datasets[0].data = [5800, 7200, 8100, 10300, 12500, 14800];
+                    trendsChart.data.datasets[1].data = [290, 350, 280, 410, 320, 380];
+                } else {
+                    // Weekly (default)
+                    trendsChart.data.labels = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5', 'Week 6'];
+                    trendsChart.data.datasets[0].data = [120, 145, 135, 170, 190, 210];
+                    trendsChart.data.datasets[1].data = [8, 12, 5, 10, 4, 7];
+                }
+                
+                trendsChart.update();
+            });
+        });
+    });
+</script>
+{% endblock %}

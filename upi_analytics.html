@@ -1,0 +1,364 @@
+{% extends 'base.html' %}
+
+{% block title %}UPI Analytics - Fraud Detection System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3">UPI Fraud Analytics Dashboard</h1>
+        <div>
+            </button>
+            </button>
+        </div>
+    </div>
+    
+    <!-- Quick Stats -->
+    <div class="row g-3 mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 bg-blue-gradient h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="card-title text-black-50">Total UPI Transactions</h6>
+                            <h2 class="display-6 mb-0 text-black">{{ stats.total_transactions | number_format }}</h2>
+                            <p class="card-text mb-0 text-black-50">₹{{ stats.transaction_amount | number_format }}</p>
+                        </div>
+                        <div class="icon-shape rounded-circle bg-white bg-opacity-10 text-black p-3">
+                            <i class="fas fa-exchange-alt fa-fw"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 bg-danger-gradient h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="card-title text-black-50">Flagged as Fraud</h6>
+                            <h2 class="display-6 mb-0 text-black">{{ stats.fraud_count }}</h2>
+                            <p class="card-text mb-0 text-black-50">{{ stats.fraud_rate }}% of all transactions</p>
+                        </div>
+                        <div class="icon-shape rounded-circle bg-white bg-opacity-10 text-black p-3">
+                            <i class="fas fa-exclamation-triangle fa-fw"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 bg-success-gradient h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="card-title text-black-50">Blocked Transactions</h6>
+                            <h2 class="display-6 mb-0 text-black">{{ stats.blocked_transactions }}</h2>
+                            <p class="card-text mb-0 text-black-50">₹{{ stats.saved_amount | number_format }} saved</p>
+                        </div>
+                        <div class="icon-shape rounded-circle bg-white bg-opacity-10 text-black p-3">
+                            <i class="fas fa-shield-alt fa-fw"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 bg-purple-gradient h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="card-title text-black-50">Model Accuracy</h6>
+                            <h2 class="display-6 mb-0 text-black">{{ stats.model_accuracy }}%</h2>
+                            <p class="card-text mb-0 text-black-50">Last updated today</p>
+                        </div>
+                        <div class="icon-shape rounded-circle bg-white bg-opacity-10 text-black p-3">
+                            <i class="fas fa-brain fa-fw"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row g-3 mb-4">
+        <!-- Transaction Types -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-transparent">
+                    <h5 class="card-title mb-0">Transaction Patterns</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Type</th>
+                                    <th>Count</th>
+                                    <th>%</th>
+                                    <th>Avg Amount</th>
+                                    <th>Fraud Rate</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for pattern in patterns %}
+                                <tr>
+                                    <td>{{ pattern.name }}</td>
+                                    <td>{{ pattern.count | number_format }}</td>
+                                    <td>{{ pattern.percentage }}%</td>
+                                    <td>₹{{ pattern.avg_amount | number_format }}</td>
+                                    <td>
+                                        <span class="badge bg-{{ 'danger' if pattern.fraud_rate > 2 else 'warning' if pattern.fraud_rate > 1 else 'success' }}">
+                                            {{ pattern.fraud_rate }}%
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Peak Hours -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-transparent">
+                    <h5 class="card-title mb-0">Transaction Peak Hours & Fraud Rate</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        {% for hour_data in hours_data %}
+                        {% if loop.index <= 8 %}
+                        <div class="col-md-3 col-6">
+                            <div class="text-center">
+                                <h6 class="mb-1">{{ hour_data.hour }}</h6>
+                                <div class="progress mb-2" style="height: 40px;">
+                                    <div 
+                                        class="progress-bar bg-{{ hour_data.color }}" 
+                                        role="progressbar" 
+                                        style="height: 100%; width: {{ (hour_data.volume / 400) * 100 }}%;" 
+                                        aria-valuenow="{{ hour_data.volume }}" 
+                                        aria-valuemin="0" 
+                                        aria-valuemax="400">
+                                    </div>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <small class="text-muted">{{ hour_data.volume }}</small>
+                                    <small class="text-{{ hour_data.color }}">{{ hour_data.fraud_rate }}%</small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="mt-3 text-center">
+                        <small class="text-muted">Showing top 8 hours. <a href="#" class="text-primary">View all hours</a></small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row g-3 mb-4">
+        <!-- Fraud Patterns -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-transparent">
+                    <h5 class="card-title mb-0">Detected Fraud Patterns</h5>
+                </div>
+                <div class="card-body">
+                    {% for pattern in fraud_patterns %}
+                    <div class="mb-3 pb-3 {% if not loop.last %}border-bottom{% endif %}">
+                        <div class="d-flex justify-content-between">
+                            <h6>{{ pattern.pattern }}</h6>
+                            <span class="badge bg-{{ 'danger' if pattern.risk_score > 80 else 'warning' }}">
+                                {{ pattern.risk_score }}/100
+                            </span>
+                        </div>
+                        <p class="text-muted mb-2">{{ pattern.description }}</p>
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="d-flex align-items-center">
+                                    <div class="flex-shrink-0">
+                                        <i class="fas fa-check-circle text-success"></i>
+                                    </div>
+                                    <div class="flex-grow-1 ms-2">
+                                        <small class="text-muted">Detection Rate</small>
+                                        <div>{{ pattern.detection_rate }}%</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="d-flex align-items-center">
+                                    <div class="flex-shrink-0">
+                                        <i class="fas fa-exclamation-circle text-warning"></i>
+                                    </div>
+                                    <div class="flex-grow-1 ms-2">
+                                        <small class="text-muted">False Positive</small>
+                                        <div>{{ pattern.false_positive }}%</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Security Recommendations -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-transparent">
+                    <h5 class="card-title mb-0">Security Recommendations</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        {% for rec in recommendations %}
+                        <div class="col-md-6">
+                            <div class="card bg-light h-100">
+                                <div class="card-body">
+                                    <div class="icon-box mb-3 rounded-circle bg-primary bg-opacity-10 text-primary p-2 d-inline-block">
+                                        <i class="fas fa-{{ rec.icon }} fa-fw"></i>
+                                    </div>
+                                    <h6 class="card-title">{{ rec.title }}</h6>
+                                    <p class="card-text small">{{ rec.description }}</p>
+                                    <div class="d-flex">
+                                        <div class="me-3">
+                                            <span class="badge bg-{{ 'success' if rec.impact == 'High' else 'info' }}">
+                                                {{ rec.impact }} Impact
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <span class="badge bg-{{ 'success' if rec.implementation == 'Easy' else 'warning' if rec.implementation == 'Medium' else 'danger' }}">
+                                                {{ rec.implementation }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row g-3">
+        <!-- Location Data -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-transparent">
+                    <h5 class="card-title mb-0">Geographic Distribution</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Location</th>
+                                    <th>Transactions</th>
+                                    <th>Fraud Rate</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for location in locations %}
+                                <tr>
+                                    <td>{{ location.city }}</td>
+                                    <td>{{ location.count | number_format }}</td>
+                                    <td>
+                                        <span class="badge bg-{{ 'danger' if location.fraud_rate > 2 else 'warning' if location.fraud_rate > 1 else 'success' }}">
+                                            {{ location.fraud_rate }}%
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="mt-3 text-center">
+                        <a href="#" class="btn btn-sm btn-outline-primary">View Detailed Map</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Monthly Trends -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Monthly Trends</h5>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button" class="btn btn-outline-secondary active">Volume</button>
+                        <button type="button" class="btn btn-outline-secondary">Fraud Rate</button>
+                        <button type="button" class="btn btn-outline-secondary">Combined</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div style="height: 300px; position: relative;">
+                        <!-- This would be replaced with Chart.js in a real implementation -->
+                        <div class="d-flex align-items-end h-100">
+                            {% for month in month_data.labels %}
+                            {% set index = loop.index0 %}
+                            {% set height = (month_data.volumes[index] / 4500 * 100) | round %}
+                            {% set fraudRate = month_data.fraud_rates[index] %}
+                            <div class="flex-grow-1 d-flex flex-column align-items-center mx-1">
+                                <div class="position-relative w-100">
+                                    <div class="progress flex-column bg-transparent" style="height: 200px;">
+                                        <div 
+                                            class="progress-bar bg-primary mb-1"
+                                            role="progressbar"
+                                            style="width: 100%; height: {{ height }}%;" 
+                                            aria-valuenow="{{ month_data.volumes[index] }}" 
+                                            aria-valuemin="0" 
+                                            aria-valuemax="4500">
+                                        </div>
+                                    </div>
+                                    <div class="position-absolute bottom-0 start-50 translate-middle-x">
+                                        <span class="badge rounded-pill bg-{{ 'danger' if fraudRate > 1 else 'warning' if fraudRate > 0.8 else 'success' }}" 
+                                              style="transform: translateY(50%);">
+                                            {{ fraudRate }}%
+                                        </span>
+                                    </div>
+                                </div>
+                                <small class="text-muted mt-3">{{ month }}</small>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 d-flex justify-content-between">
+                        <div>
+                            <span class="legend-indicator bg-primary"></span>
+                            <small>Transaction Volume</small>
+                        </div>
+                        <div>
+                            <span class="legend-indicator bg-danger"></span>
+                            <small>Fraud Rate</small>
+                        </div>
+                        <div>
+                            <small class="text-muted">Last updated: Today at 09:41 AM</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Interactive elements would be implemented here in a real application
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add event listeners and visualization logic
+    });
+</script>
+{% endblock %}
